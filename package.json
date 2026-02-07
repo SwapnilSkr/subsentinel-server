@@ -6,9 +6,13 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/cors": "^1.4.1",
+    "dodopayments": "^2.19.0",
+    "elysia": "latest",
+    "mongoose": "^9.1.6"
   },
   "devDependencies": {
+    "@types/mongoose": "^5.11.97",
     "bun-types": "latest"
   },
   "module": "src/index.js"
