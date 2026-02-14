@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { User, DeviceToken } from "./models";
+import { User } from "../models";
 import twilio from "twilio";
 import admin from "firebase-admin";
 
@@ -40,7 +40,7 @@ if (admin.apps.length === 0) {
       // 3. Try to load service-account.json (Legacy / Local File)
       try {
         admin.initializeApp({
-          credential: admin.credential.cert(require("../service-account.json")),
+          credential: admin.credential.cert(require("../../service-account.json")),
         });
         console.log("✅ Firebase initialized from service-account.json");
       } catch (f) {
