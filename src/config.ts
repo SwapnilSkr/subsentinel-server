@@ -1,10 +1,53 @@
 import admin from "firebase-admin";
+import twilio from "twilio";
+import DodoPayments from "dodopayments";
 
-// --- Firebase Configuration ---
+// ============================================
+// Environment Configuration
+// ============================================
+
+export const ENV = {
+  // App
+  NODE_ENV: process.env.NODE_ENV || "development",
+  PORT: parseInt(process.env.PORT || "3000", 10),
+  
+  // Database
+  MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017/sub_auditor",
+  
+  // Twilio
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || "AC_MOCK_SID",
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || "MOCK_TOKEN",
+  TWILIO_VERIFY_SERVICE_SID: process.env.TWILIO_VERIFY_SERVICE_SID || "VA_MOCK_SERVICE",
+  
+  // Dodo Payments
+  DODO_PAYMENTS_API_KEY: process.env.DODO_PAYMENTS_API_KEY || "test_token",
+  DODO_PAYMENTS_ENVIRONMENT: (process.env.DODO_PAYMENTS_ENVIRONMENT || "test_mode") as "test_mode" | "live_mode",
+  
+  // Firebase (optional - will use other methods if not provided)
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
+  
+  // Logging
+  LOG_LEVEL: (process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") || "debug",
+};
+
+// ============================================
+// Service Clients (initialized in startup)
+// ============================================
+
+// Twilio Client
+export let twilioClient: ReturnType<typeof twilio>;
+
+// Dodo Payments Client
+export let dodoClient: DodoPayments;
+
+// ============================================
+// Firebase Initialization
+// ============================================
 
 /**
  * Initialize Firebase Admin SDK
- * This should be called once at application startup
  */
 export function initializeFirebase(): void {
   if (admin.apps.length > 0) {
@@ -15,15 +58,15 @@ export function initializeFirebase(): void {
   try {
     // 1. Initialize from Environment Variables (Privileged)
     if (
-      process.env.FIREBASE_PROJECT_ID &&
-      process.env.FIREBASE_CLIENT_EMAIL &&
-      process.env.FIREBASE_PRIVATE_KEY
+      ENV.FIREBASE_PROJECT_ID &&
+      ENV.FIREBASE_CLIENT_EMAIL &&
+      ENV.FIREBASE_PRIVATE_KEY
     ) {
       admin.initializeApp({
         credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          projectId: ENV.FIREBASE_PROJECT_ID,
+          clientEmail: ENV.FIREBASE_CLIENT_EMAIL,
+          privateKey: ENV.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
         }),
       });
       console.log("✅ Firebase initialized from Environment Variables");
@@ -31,9 +74,9 @@ export function initializeFirebase(): void {
     }
 
     // 2. Initialize with Project ID only (Limited Privilege)
-    if (process.env.FIREBASE_PROJECT_ID) {
+    if (ENV.FIREBASE_PROJECT_ID) {
       admin.initializeApp({
-        projectId: process.env.FIREBASE_PROJECT_ID,
+        projectId: ENV.FIREBASE_PROJECT_ID,
         credential: admin.credential.applicationDefault(),
       });
       console.log("⚠️  Firebase initialized with Project ID/ADC");
@@ -58,5 +101,60 @@ export function initializeFirebase(): void {
   }
 }
 
-// Export the admin instance for use in services
+// ============================================
+// Twilio Initialization
+// ============================================
+
+/**
+ * Initialize Twilio Client
+ */
+export function initializeTwilio(): void {
+  const isMock = ENV.TWILIO_ACCOUNT_SID === "AC_MOCK_SID";
+  
+  if (isMock) {
+    console.log("⚠️  Twilio running in MOCK mode");
+  } else {
+    console.log("✅ Twilio initialized");
+  }
+  
+  twilioClient = twilio(ENV.TWILIO_ACCOUNT_SID, ENV.TWILIO_AUTH_TOKEN);
+}
+
+// ============================================
+// Dodo Payments Initialization
+// ============================================
+
+/**
+ * Initialize Dodo Payments Client
+ */
+export function initializeDodoPayments(): void {
+  const isTestMode = ENV.DODO_PAYMENTS_ENVIRONMENT === "test_mode";
+  
+  dodoClient = new DodoPayments({
+    bearerToken: ENV.DODO_PAYMENTS_API_KEY,
+    environment: ENV.DODO_PAYMENTS_ENVIRONMENT,
+  });
+  
+  console.log(`${isTestMode ? "⚠️" : "✅"} Dodo Payments initialized (${ENV.DODO_PAYMENTS_ENVIRONMENT})`);
+}
+
+// ============================================
+// Master Initialization Function
+// ============================================
+
+/**
+ * Initialize all external services
+ * Call this at application startup
+ */
+export function initializeServices(): void {
+  console.log("\n🚀 Initializing services...\n");
+  
+  initializeFirebase();
+  initializeTwilio();
+  initializeDodoPayments();
+  
+  console.log("\n✅ All services initialized\n");
+}
+
+// Export Firebase admin for use in services
 export { admin };

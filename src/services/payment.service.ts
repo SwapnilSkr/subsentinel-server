@@ -1,11 +1,4 @@
-import DodoPayments from "dodopayments";
-
-// --- Configuration ---
-
-const dodo = new DodoPayments({
-  bearerToken: process.env.DODO_PAYMENTS_API_KEY || "test_token",
-  environment: "test_mode",
-});
+import { dodoClient } from "../config";
 
 // --- Interfaces ---
 
@@ -25,7 +18,7 @@ export interface CheckoutResult {
  * Create a checkout session for a product
  */
 export async function createCheckoutSession(data: CheckoutData): Promise<CheckoutResult> {
-  const session = await dodo.checkoutSessions.create({
+  const session = await dodoClient.checkoutSessions.create({
     product_cart: [{ product_id: data.productId, quantity: 1 }],
     customer: { email: data.email, name: data.name },
     return_url: "subsentinel://payment-success",

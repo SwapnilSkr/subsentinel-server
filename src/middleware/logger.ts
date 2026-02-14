@@ -18,6 +18,9 @@ export const colors = {
   bgBlue: "\x1b[44m",
 };
 
+// Import ENV from config
+import { ENV } from "../config";
+
 // Log Level Configuration
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -28,7 +31,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-const CURRENT_LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "debug";
+const CURRENT_LOG_LEVEL = ENV.LOG_LEVEL;
 
 // Interface for log data stored on request
 export interface RequestLogData {

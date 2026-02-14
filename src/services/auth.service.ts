@@ -1,13 +1,5 @@
 import { User } from "../models";
-import twilio from "twilio";
-import { admin } from "../config";
-
-// --- Configuration ---
-const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || "AC_MOCK_SID";
-const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || "MOCK_TOKEN";
-const TWILIO_SERVICE = process.env.TWILIO_VERIFY_SERVICE_SID || "VA_MOCK_SERVICE";
-
-const twilioClient = twilio(TWILIO_SID, TWILIO_TOKEN);
+import { admin, twilioClient, ENV } from "../config";
 
 // --- Interfaces ---
 
@@ -26,17 +18,24 @@ export interface AuthResult {
 // --- OTP Service ---
 
 /**
+ * Check if Twilio is running in mock mode
+ */
+function isTwilioMock(): boolean {
+  return ENV.TWILIO_ACCOUNT_SID === "AC_MOCK_SID";
+}
+
+/**
  * Send OTP to phone number via Twilio
  */
 export async function sendOTP(phone: string): Promise<OTPResult> {
-  if (TWILIO_SID === "AC_MOCK_SID") {
+  if (isTwilioMock()) {
     console.log(`[MOCK] Sending OTP to ${phone}`);
     return { status: "pending", mock: true };
   }
   
   try {
     const verification = await twilioClient.verify.v2
-      .services(TWILIO_SERVICE)
+      .services(ENV.TWILIO_VERIFY_SERVICE_SID)
       .verifications.create({ to: phone, channel: "sms" });
     return { status: verification.status };
   } catch (error) {
@@ -49,7 +48,7 @@ export async function sendOTP(phone: string): Promise<OTPResult> {
  * Verify OTP code for phone number
  */
 export async function verifyOTP(phone: string, code: string): Promise<OTPResult> {
-  if (TWILIO_SID === "AC_MOCK_SID") {
+  if (isTwilioMock()) {
     console.log(`[MOCK] Verifying OTP ${code} for ${phone}`);
     if (code === "123456") return { status: "approved", mock: true };
     throw new Error("Invalid OTP (Mock)");
@@ -57,7 +56,7 @@ export async function verifyOTP(phone: string, code: string): Promise<OTPResult>
   
   try {
     const verification = await twilioClient.verify.v2
-      .services(TWILIO_SERVICE)
+      .services(ENV.TWILIO_VERIFY_SERVICE_SID)
       .verificationChecks.create({ to: phone, code });
     
     if (verification.status !== "approved") {

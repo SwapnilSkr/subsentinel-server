@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { connectDB } from "./db";
-import { initializeFirebase } from "./config";
+import { initializeServices, ENV } from "./config";
 import { loggingMiddleware, logger, colors, CURRENT_LOG_LEVEL } from "./middleware/logging";
 import { 
   authRoutes, 
@@ -11,9 +11,9 @@ import {
   healthRoutes 
 } from "./routes";
 
-// Initialize all external services
+// Initialize all external services and database
 await connectDB();
-initializeFirebase();
+initializeServices();
 
 const app = new Elysia()
   .use(cors())
@@ -27,7 +27,7 @@ const app = new Elysia()
   .use(deviceRoutes)
   .use(healthRoutes)
 
-  .listen(3000);
+  .listen(ENV.PORT);
 
 console.log(
   `${colors.green}🚀 SubSentinel Backend running at ${app.server?.hostname}:${app.server?.port}${colors.reset}`,
