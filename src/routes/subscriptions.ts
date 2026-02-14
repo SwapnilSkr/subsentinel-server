@@ -8,6 +8,8 @@ import {
 } from "../services";
 import { logger } from "../middleware/logging";
 
+const objectIdPattern = "^[a-fA-F0-9]{24}$";
+
 export const subscriptionRoutes = (app: Elysia) =>
   app.group("/subscriptions", (app) =>
     app
@@ -55,9 +57,15 @@ export const subscriptionRoutes = (app: Elysia) =>
             amount: t.Number(),
             currency: t.Optional(t.String()),
             next_billing: t.String(),
-            status: t.Optional(t.String()),
+            status: t.Optional(
+              t.Union([
+                t.Literal("active"),
+                t.Literal("paused"),
+                t.Literal("cancelled"),
+              ]),
+            ),
             category: t.Optional(t.String()),
-            userId: t.Optional(t.String()),
+            userId: t.Optional(t.String({ pattern: objectIdPattern })),
           }),
         },
       )
@@ -80,7 +88,13 @@ export const subscriptionRoutes = (app: Elysia) =>
           return subscription;
         },
         {
-          body: t.Object({ status: t.String() }),
+          body: t.Object({
+            status: t.Union([
+              t.Literal("active"),
+              t.Literal("paused"),
+              t.Literal("cancelled"),
+            ]),
+          }),
         },
       )
 

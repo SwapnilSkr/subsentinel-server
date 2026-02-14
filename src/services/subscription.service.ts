@@ -1,4 +1,5 @@
-import { Subscription } from "../models";
+import { Types } from "mongoose";
+import { Subscription, User } from "../models";
 
 // --- Interfaces ---
 
@@ -7,7 +8,7 @@ export interface SubscriptionData {
   amount: number;
   currency?: string;
   next_billing: string;
-  status?: string;
+  status?: "active" | "paused" | "cancelled";
   category?: string;
   userId?: string;
 }
@@ -25,6 +26,18 @@ export interface RenewalInfo {
   name: string;
   amount: number;
   daysLeft: number;
+}
+
+async function resolveUserId(userId: string): Promise<Types.ObjectId> {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid userId");
+  }
+  const objectId = new Types.ObjectId(userId);
+  const userExists = await User.exists({ _id: objectId });
+  if (!userExists) {
+    throw new Error("User not found");
+  }
+  return objectId;
 }
 
 // --- Subscription Service ---
@@ -80,10 +93,28 @@ export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
  * Create a new subscription
  */
 export async function createSubscription(data: SubscriptionData): Promise<any> {
-  const subscription = await Subscription.create({
-    ...data,
+  const createData: {
+    provider: string;
+    amount: number;
+    currency?: string;
+    next_billing: Date;
+    status?: "active" | "paused" | "cancelled";
+    category?: string;
+    userId?: Types.ObjectId;
+  } = {
+    provider: data.provider,
+    amount: data.amount,
+    currency: data.currency,
     next_billing: new Date(data.next_billing),
-  });
+    status: data.status,
+    category: data.category,
+  };
+
+  if (data.userId) {
+    createData.userId = await resolveUserId(data.userId);
+  }
+
+  const subscription = await Subscription.create(createData);
   return subscription;
 }
 
@@ -92,12 +123,16 @@ export async function createSubscription(data: SubscriptionData): Promise<any> {
  */
 export async function updateSubscriptionStatus(
   id: string, 
-  status: string
+  status: "active" | "paused" | "cancelled"
 ): Promise<any | null> {
+  if (!Types.ObjectId.isValid(id)) {
+    return null;
+  }
+
   const subscription = await Subscription.findByIdAndUpdate(
     id,
     { status },
-    { new: true },
+    { new: true, runValidators: true },
   );
   return subscription;
 }
@@ -106,6 +141,10 @@ export async function updateSubscriptionStatus(
  * Delete subscription by ID
  */
 export async function deleteSubscription(id: string): Promise<boolean> {
+  if (!Types.ObjectId.isValid(id)) {
+    return false;
+  }
+
   const result = await Subscription.findByIdAndDelete(id);
   return result !== null;
 }
@@ -114,6 +153,10 @@ export async function deleteSubscription(id: string): Promise<boolean> {
  * Check if subscription exists
  */
 export async function subscriptionExists(id: string): Promise<boolean> {
+  if (!Types.ObjectId.isValid(id)) {
+    return false;
+  }
+
   const count = await Subscription.countDocuments({ _id: id });
   return count > 0;
 }

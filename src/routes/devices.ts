@@ -2,6 +2,8 @@ import { Elysia, t } from "elysia";
 import { registerDevice } from "../services";
 import { logger } from "../middleware/logging";
 
+const objectIdPattern = "^[a-fA-F0-9]{24}$";
+
 export const deviceRoutes = (app: Elysia) =>
   app.group("/register-device", (app) =>
     app
@@ -23,7 +25,7 @@ export const deviceRoutes = (app: Elysia) =>
         {
           body: t.Object({
             token: t.String(),
-            userId: t.Optional(t.String()),
+            userId: t.Optional(t.String({ pattern: objectIdPattern })),
             platform: t.String(),
           }),
         },
