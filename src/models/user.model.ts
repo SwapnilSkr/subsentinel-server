@@ -1,4 +1,4 @@
-import { Schema, model, models, type Document, type Model } from "mongoose";
+import { Schema, model, models, type Document, type Model, Types } from "mongoose";
 
 export interface IUser extends Document {
   phone?: string;
@@ -6,6 +6,7 @@ export interface IUser extends Document {
   email?: string;
   displayName?: string;
   photoUrl?: string;
+  subscriptions: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,15 +18,11 @@ const userSchema = new Schema<IUser>(
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     displayName: { type: String, trim: true },
     photoUrl: { type: String, trim: true },
+    subscriptions: [{ type: Schema.Types.ObjectId, ref: "Subscription" }],
   },
   { timestamps: true },
 );
 
-userSchema.virtual("subscriptions", {
-  ref: "Subscription",
-  localField: "_id",
-  foreignField: "userId",
-});
 userSchema.virtual("deviceTokens", {
   ref: "DeviceToken",
   localField: "_id",

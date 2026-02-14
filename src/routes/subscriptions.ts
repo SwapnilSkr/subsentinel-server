@@ -85,6 +85,7 @@ export const subscriptionRoutes = (app: Elysia) =>
               ]),
             ),
             categoryId: t.Optional(t.String()),
+            logoUrl: t.Optional(t.String()),
           }),
         },
       )

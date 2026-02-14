@@ -1,13 +1,20 @@
-import { verifyUserToken } from "../services";
+import { verifyUserToken, verifyAdminToken } from "../services";
 
 export interface AuthContextData {
   userId: string;
   token: string;
 }
 
+export interface AdminAuthContextData {
+  adminId: string;
+  role: "admin";
+  token: string;
+}
+
 declare global {
   interface Request {
     __auth?: AuthContextData;
+    __adminAuth?: AdminAuthContextData;
   }
 }
 
@@ -34,6 +41,26 @@ export async function requireAuth(context: any) {
   try {
     const payload = verifyUserToken(token);
     request.__auth = { userId: payload.userId, token };
+  } catch (error: any) {
+    set.status = 401;
+    return { success: false, error: error?.message || "Unauthorized" };
+  }
+}
+
+export async function requireAdminAuth(context: any) {
+  const request = context.request as Request;
+  const set = context.set as { status?: any };
+  const authHeader = request.headers.get("authorization");
+  const token = extractBearerToken(authHeader);
+
+  if (!token) {
+    set.status = 401;
+    return { success: false, error: "Missing or invalid Authorization header" };
+  }
+
+  try {
+    const payload = verifyAdminToken(token);
+    request.__adminAuth = { adminId: payload.adminId, role: payload.role, token };
   } catch (error: any) {
     set.status = 401;
     return { success: false, error: error?.message || "Unauthorized" };

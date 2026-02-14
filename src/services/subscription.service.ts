@@ -10,6 +10,7 @@ export interface SubscriptionData {
   next_billing: string;
   status?: "active" | "paused" | "cancelled";
   categoryId?: string;
+  logoUrl?: string;
 }
 
 export interface SubscriptionSummary {
@@ -46,9 +47,12 @@ async function resolveUserId(userId: string): Promise<Types.ObjectId> {
  */
 export async function getAllSubscriptions(userId: string): Promise<any[]> {
   const ownerId = await resolveUserId(userId);
-  return await Subscription.find({ userId: ownerId })
-    .populate("categoryId")
-    .sort({ next_billing: 1 });
+  const user = await User.findById(ownerId).populate({
+    path: "subscriptions",
+    populate: { path: "categoryId" },
+    options: { sort: { next_billing: 1 } },
+  });
+  return user?.subscriptions || [];
 }
 
 /**
@@ -58,13 +62,15 @@ export async function getSubscriptionSummary(
   userId: string,
 ): Promise<SubscriptionSummary> {
   const ownerId = await resolveUserId(userId);
-  const activeSubscriptions = await Subscription.find({
-    status: "active",
-    userId: ownerId,
-  });
+  const user = await User.findById(ownerId).populate("subscriptions");
+  const subscriptions = (user?.subscriptions || []) as any[];
+
+  const activeSubscriptions = subscriptions.filter(
+    (sub: any) => sub.status === "active",
+  );
 
   const totalBurn = activeSubscriptions.reduce(
-    (sum, sub) => sum + sub.amount,
+    (sum: number, sub: any) => sum + sub.amount,
     0,
   );
 
@@ -74,11 +80,12 @@ export async function getSubscriptionSummary(
   sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
   const renewingSoon = activeSubscriptions
-    .filter((sub) => {
+    .filter((sub: any) => {
+      if (!sub.next_billing) return false;
       const billingDate = new Date(sub.next_billing);
       return billingDate >= now && billingDate <= sevenDaysLater;
     })
-    .map((sub) => ({
+    .map((sub: any) => ({
       id: sub._id,
       name: sub.provider,
       amount: sub.amount,
@@ -91,7 +98,7 @@ export async function getSubscriptionSummary(
   return {
     totalBurn,
     activeCount: activeSubscriptions.length,
-    totalCount: await Subscription.countDocuments({ userId: ownerId }),
+    totalCount: subscriptions.length,
     renewingSoon,
     currency: "USD",
   };
@@ -104,28 +111,31 @@ export async function createSubscription(
   data: SubscriptionData,
   userId: string,
 ): Promise<any> {
-  const createData: {
-    provider: string;
-    amount: number;
-    currency?: string;
-    next_billing: Date;
-    status?: "active" | "paused" | "cancelled";
-    categoryId?: Types.ObjectId;
-    userId: Types.ObjectId;
-  } = {
+  const ownerId = await resolveUserId(userId);
+
+  const createData: any = {
     provider: data.provider,
     amount: data.amount,
     currency: data.currency,
     next_billing: new Date(data.next_billing),
     status: data.status,
-    userId: await resolveUserId(userId),
+    isDefault: false,
   };
+
+  if (data.logoUrl) {
+    createData.logoUrl = data.logoUrl;
+  }
 
   if (data.categoryId && Types.ObjectId.isValid(data.categoryId)) {
     createData.categoryId = new Types.ObjectId(data.categoryId);
   }
 
   const subscription = await Subscription.create(createData);
+
+  await User.findByIdAndUpdate(ownerId, {
+    $push: { subscriptions: subscription._id },
+  });
+
   return await subscription.populate("categoryId");
 }
 
@@ -133,7 +143,7 @@ export async function createSubscription(
  * Update subscription status by ID
  */
 export async function updateSubscriptionStatus(
-  id: string, 
+  id: string,
   status: "active" | "paused" | "cancelled",
   userId: string,
 ): Promise<any | null> {
@@ -141,8 +151,13 @@ export async function updateSubscriptionStatus(
     return null;
   }
 
-  const subscription = await Subscription.findOneAndUpdate(
-    { _id: id, userId: new Types.ObjectId(userId) },
+  const user = await User.findById(userId);
+  if (!user || !user.subscriptions.some((subId) => subId.toString() === id)) {
+    return null;
+  }
+
+  const subscription = await Subscription.findByIdAndUpdate(
+    id,
     { status },
     { new: true, runValidators: true },
   );
@@ -160,11 +175,19 @@ export async function deleteSubscription(
     return false;
   }
 
-  const result = await Subscription.findOneAndDelete({
-    _id: id,
-    userId: new Types.ObjectId(userId),
+  const user = await User.findById(userId);
+  if (!user || !user.subscriptions.some((subId) => subId.toString() === id)) {
+    return false;
+  }
+
+  const result = await Subscription.findByIdAndDelete(id);
+  if (!result) return false;
+
+  await User.findByIdAndUpdate(userId, {
+    $pull: { subscriptions: new Types.ObjectId(id) },
   });
-  return result !== null;
+
+  return true;
 }
 
 /**

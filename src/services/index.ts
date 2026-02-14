@@ -4,3 +4,5 @@ export * from "./subscription.service";
 export * from "./payment.service";
 export * from "./device.service";
 export * from "./category.service";
+export * from "./admin.service";
+export * from "./s3.service";
