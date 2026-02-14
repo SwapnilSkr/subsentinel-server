@@ -84,7 +84,7 @@ export const subscriptionRoutes = (app: Elysia) =>
                 t.Literal("cancelled"),
               ]),
             ),
-            category: t.Optional(t.String()),
+            categoryId: t.Optional(t.String()),
           }),
         },
       )

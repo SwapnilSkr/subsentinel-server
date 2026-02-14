@@ -3,17 +3,20 @@ import { cors } from "@elysiajs/cors";
 import { connectDB } from "./db";
 import { initializeServices, ENV } from "./config";
 import { loggingMiddleware, logger, colors, CURRENT_LOG_LEVEL } from "./middleware/logging";
-import { 
-  authRoutes, 
-  subscriptionRoutes, 
-  paymentRoutes, 
-  deviceRoutes, 
-  healthRoutes 
+import {
+  authRoutes,
+  subscriptionRoutes,
+  paymentRoutes,
+  deviceRoutes,
+  healthRoutes,
+  categoryRoutes,
 } from "./routes";
+import { seedDefaultCategories } from "./services";
 
 // Initialize all external services and database
 await connectDB();
 initializeServices();
+await seedDefaultCategories();
 
 const app = new Elysia()
   .use(cors())
@@ -23,6 +26,7 @@ const app = new Elysia()
   // ==================== ROUTES ====================
   .use(authRoutes)
   .use(subscriptionRoutes)
+  .use(categoryRoutes)
   .use(paymentRoutes)
   .use(deviceRoutes)
   .use(healthRoutes)

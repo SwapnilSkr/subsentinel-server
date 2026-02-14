@@ -9,7 +9,7 @@ export interface SubscriptionData {
   currency?: string;
   next_billing: string;
   status?: "active" | "paused" | "cancelled";
-  category?: string;
+  categoryId?: string;
 }
 
 export interface SubscriptionSummary {
@@ -46,7 +46,9 @@ async function resolveUserId(userId: string): Promise<Types.ObjectId> {
  */
 export async function getAllSubscriptions(userId: string): Promise<any[]> {
   const ownerId = await resolveUserId(userId);
-  return await Subscription.find({ userId: ownerId }).sort({ next_billing: 1 });
+  return await Subscription.find({ userId: ownerId })
+    .populate("categoryId")
+    .sort({ next_billing: 1 });
 }
 
 /**
@@ -108,7 +110,7 @@ export async function createSubscription(
     currency?: string;
     next_billing: Date;
     status?: "active" | "paused" | "cancelled";
-    category?: string;
+    categoryId?: Types.ObjectId;
     userId: Types.ObjectId;
   } = {
     provider: data.provider,
@@ -116,12 +118,15 @@ export async function createSubscription(
     currency: data.currency,
     next_billing: new Date(data.next_billing),
     status: data.status,
-    category: data.category,
     userId: await resolveUserId(userId),
   };
 
+  if (data.categoryId && Types.ObjectId.isValid(data.categoryId)) {
+    createData.categoryId = new Types.ObjectId(data.categoryId);
+  }
+
   const subscription = await Subscription.create(createData);
-  return subscription;
+  return await subscription.populate("categoryId");
 }
 
 /**

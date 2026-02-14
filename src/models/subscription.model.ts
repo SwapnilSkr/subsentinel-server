@@ -6,7 +6,7 @@ export interface ISubscription extends Document {
   currency: string;
   next_billing: Date;
   status: "active" | "paused" | "cancelled";
-  category?: string;
+  categoryId?: Types.ObjectId;
   userId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -23,7 +23,7 @@ const subscriptionSchema = new Schema<ISubscription>(
       enum: ["active", "paused", "cancelled"],
       default: "active",
     },
-    category: String,
+    categoryId: { type: Schema.Types.ObjectId, ref: "Category", index: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", index: true },
   },
   { timestamps: true },
