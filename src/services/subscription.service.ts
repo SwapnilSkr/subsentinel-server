@@ -10,7 +10,6 @@ export interface SubscriptionData {
   next_billing: string;
   status?: "active" | "paused" | "cancelled";
   category?: string;
-  userId?: string;
 }
 
 export interface SubscriptionSummary {
@@ -45,15 +44,22 @@ async function resolveUserId(userId: string): Promise<Types.ObjectId> {
 /**
  * Get all subscriptions sorted by next billing date
  */
-export async function getAllSubscriptions(): Promise<any[]> {
-  return await Subscription.find({}).sort({ next_billing: 1 });
+export async function getAllSubscriptions(userId: string): Promise<any[]> {
+  const ownerId = await resolveUserId(userId);
+  return await Subscription.find({ userId: ownerId }).sort({ next_billing: 1 });
 }
 
 /**
  * Get subscription summary for dashboard
  */
-export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
-  const activeSubscriptions = await Subscription.find({ status: "active" });
+export async function getSubscriptionSummary(
+  userId: string,
+): Promise<SubscriptionSummary> {
+  const ownerId = await resolveUserId(userId);
+  const activeSubscriptions = await Subscription.find({
+    status: "active",
+    userId: ownerId,
+  });
 
   const totalBurn = activeSubscriptions.reduce(
     (sum, sub) => sum + sub.amount,
@@ -83,7 +89,7 @@ export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
   return {
     totalBurn,
     activeCount: activeSubscriptions.length,
-    totalCount: await Subscription.countDocuments(),
+    totalCount: await Subscription.countDocuments({ userId: ownerId }),
     renewingSoon,
     currency: "USD",
   };
@@ -92,7 +98,10 @@ export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
 /**
  * Create a new subscription
  */
-export async function createSubscription(data: SubscriptionData): Promise<any> {
+export async function createSubscription(
+  data: SubscriptionData,
+  userId: string,
+): Promise<any> {
   const createData: {
     provider: string;
     amount: number;
@@ -100,7 +109,7 @@ export async function createSubscription(data: SubscriptionData): Promise<any> {
     next_billing: Date;
     status?: "active" | "paused" | "cancelled";
     category?: string;
-    userId?: Types.ObjectId;
+    userId: Types.ObjectId;
   } = {
     provider: data.provider,
     amount: data.amount,
@@ -108,11 +117,8 @@ export async function createSubscription(data: SubscriptionData): Promise<any> {
     next_billing: new Date(data.next_billing),
     status: data.status,
     category: data.category,
+    userId: await resolveUserId(userId),
   };
-
-  if (data.userId) {
-    createData.userId = await resolveUserId(data.userId);
-  }
 
   const subscription = await Subscription.create(createData);
   return subscription;
@@ -123,14 +129,15 @@ export async function createSubscription(data: SubscriptionData): Promise<any> {
  */
 export async function updateSubscriptionStatus(
   id: string, 
-  status: "active" | "paused" | "cancelled"
+  status: "active" | "paused" | "cancelled",
+  userId: string,
 ): Promise<any | null> {
-  if (!Types.ObjectId.isValid(id)) {
+  if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId)) {
     return null;
   }
 
-  const subscription = await Subscription.findByIdAndUpdate(
-    id,
+  const subscription = await Subscription.findOneAndUpdate(
+    { _id: id, userId: new Types.ObjectId(userId) },
     { status },
     { new: true, runValidators: true },
   );
@@ -140,12 +147,18 @@ export async function updateSubscriptionStatus(
 /**
  * Delete subscription by ID
  */
-export async function deleteSubscription(id: string): Promise<boolean> {
-  if (!Types.ObjectId.isValid(id)) {
+export async function deleteSubscription(
+  id: string,
+  userId: string,
+): Promise<boolean> {
+  if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId)) {
     return false;
   }
 
-  const result = await Subscription.findByIdAndDelete(id);
+  const result = await Subscription.findOneAndDelete({
+    _id: id,
+    userId: new Types.ObjectId(userId),
+  });
   return result !== null;
 }
 

@@ -11,10 +11,12 @@
     "elysia": "latest",
     "firebase-admin": "^13.6.1",
     "google-auth-library": "^10.5.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.1.6",
     "twilio": "^5.12.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.97",
     "bun-types": "latest"
   },

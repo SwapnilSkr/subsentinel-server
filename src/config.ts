@@ -1,10 +1,14 @@
 import admin from "firebase-admin";
 import twilio from "twilio";
 import DodoPayments from "dodopayments";
+import { randomBytes } from "crypto";
 
 // ============================================
 // Environment Configuration
 // ============================================
+
+const hasJwtSecretInEnv = Boolean(process.env.JWT_SECRET);
+const generatedDevJwtSecret = randomBytes(64).toString("hex");
 
 export const ENV = {
   // App
@@ -22,6 +26,10 @@ export const ENV = {
   // Dodo Payments
   DODO_PAYMENTS_API_KEY: process.env.DODO_PAYMENTS_API_KEY || "test_token",
   DODO_PAYMENTS_ENVIRONMENT: (process.env.DODO_PAYMENTS_ENVIRONMENT || "test_mode") as "test_mode" | "live_mode",
+
+  // JWT
+  JWT_SECRET: process.env.JWT_SECRET || generatedDevJwtSecret,
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   
   // Firebase (optional - will use other methods if not provided)
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
@@ -148,6 +156,16 @@ export function initializeDodoPayments(): void {
  */
 export function initializeServices(): void {
   console.log("\n🚀 Initializing services...\n");
+
+  if (ENV.NODE_ENV === "production" && !hasJwtSecretInEnv) {
+    throw new Error("JWT_SECRET must be set in production");
+  }
+
+  if (!hasJwtSecretInEnv) {
+    console.warn(
+      "⚠️  JWT_SECRET not set. Generated an ephemeral development secret.",
+    );
+  }
   
   initializeFirebase();
   initializeTwilio();

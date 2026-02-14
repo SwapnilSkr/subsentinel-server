@@ -1,5 +1,6 @@
 import { User } from "../models";
 import { admin, twilioClient, ENV } from "../config";
+import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 
 // --- Interfaces ---
 
@@ -13,6 +14,10 @@ export interface AuthResult {
   user?: any;
   token?: string;
   error?: string;
+}
+
+export interface AuthTokenPayload {
+  userId: string;
 }
 
 // --- OTP Service ---
@@ -104,12 +109,29 @@ export async function findOrCreateUserByPhone(phone: string): Promise<any> {
 export async function findOrCreateUserByGoogle(decodedToken: admin.auth.DecodedIdToken): Promise<any> {
   let user = await User.findOne({ googleId: decodedToken.uid });
   if (!user) {
-    user = await User.create({
-      googleId: decodedToken.uid,
-      email: decodedToken.email,
-      displayName: decodedToken.name,
-      photoUrl: decodedToken.picture,
-    });
+    if (decodedToken.email) {
+      user = await User.findOneAndUpdate(
+        { email: decodedToken.email },
+        {
+          $set: {
+            googleId: decodedToken.uid,
+            email: decodedToken.email,
+            displayName: decodedToken.name,
+            photoUrl: decodedToken.picture,
+          },
+        },
+        { new: true },
+      );
+    }
+
+    if (!user) {
+      user = await User.create({
+        googleId: decodedToken.uid,
+        email: decodedToken.email,
+        displayName: decodedToken.name,
+        photoUrl: decodedToken.picture,
+      });
+    }
   }
   return user;
 }
@@ -118,7 +140,39 @@ export async function findOrCreateUserByGoogle(decodedToken: admin.auth.DecodedI
  * Generate JWT token for user
  */
 export function generateUserToken(userId: string): string {
-  return "mock_jwt_token_" + userId;
+  const options: SignOptions = {
+    expiresIn: ENV.JWT_EXPIRES_IN as SignOptions["expiresIn"],
+    issuer: "subsentinel-api",
+    audience: "subsentinel-client",
+  };
+
+  return jwt.sign({ userId }, ENV.JWT_SECRET, options);
+}
+
+/**
+ * Verify JWT token and return auth payload
+ */
+export function verifyUserToken(token: string): AuthTokenPayload {
+  let decoded: string | JwtPayload;
+  try {
+    decoded = jwt.verify(token, ENV.JWT_SECRET, {
+      issuer: "subsentinel-api",
+      audience: "subsentinel-client",
+    });
+  } catch {
+    throw new Error("Invalid or expired token");
+  }
+
+  if (typeof decoded === "string") {
+    throw new Error("Invalid token payload");
+  }
+
+  const userId = decoded.userId;
+  if (typeof userId !== "string" || userId.length === 0) {
+    throw new Error("Token missing userId");
+  }
+
+  return { userId };
 }
 
 // --- Auth Flow Service ---

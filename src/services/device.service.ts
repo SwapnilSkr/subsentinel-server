@@ -5,14 +5,14 @@ import { DeviceToken, User } from "../models";
 
 export interface DeviceData {
   token: string;
-  userId?: string;
+  userId: string;
   platform: string;
 }
 
 export interface DeviceInfo {
   id: any;
   token: string;
-  userId?: Types.ObjectId;
+  userId: Types.ObjectId;
   platform: string;
 }
 
@@ -34,13 +34,10 @@ async function resolveUserId(userId: string): Promise<Types.ObjectId> {
  * Register or update a device token for FCM
  */
 export async function registerDevice(data: DeviceData): Promise<any> {
-  const setData: { platform: string; userId?: Types.ObjectId } = {
+  const setData: { platform: string; userId: Types.ObjectId } = {
     platform: data.platform.trim(),
+    userId: await resolveUserId(data.userId),
   };
-
-  if (data.userId) {
-    setData.userId = await resolveUserId(data.userId);
-  }
 
   const device = await DeviceToken.findOneAndUpdate(
     { token: data.token },
