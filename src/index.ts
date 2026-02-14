@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { connectDB } from "./db";
+import { initializeFirebase } from "./config";
 import { loggingMiddleware, logger, colors, CURRENT_LOG_LEVEL } from "./middleware/logging";
 import { 
   authRoutes, 
@@ -10,8 +11,9 @@ import {
   healthRoutes 
 } from "./routes";
 
-// Connect to MongoDB
+// Initialize all external services
 await connectDB();
+initializeFirebase();
 
 const app = new Elysia()
   .use(cors())
