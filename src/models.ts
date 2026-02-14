@@ -56,3 +56,15 @@ export const DeviceToken = model<IDeviceToken>(
   "DeviceToken",
   deviceTokenSchema,
 );
+
+// User Schema for Auth
+const userSchema = new Schema({
+  phone: { type: String, unique: true, sparse: true },
+  googleId: { type: String, unique: true, sparse: true },
+  email: { type: String, unique: true, sparse: true }, // For Google Auth
+  displayName: String,
+  photoUrl: String,
+  createdAt: { type: Date, default: Date.now },
+});
+
+export const User = model("User", userSchema);

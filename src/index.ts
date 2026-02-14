@@ -3,6 +3,8 @@ import { cors } from "@elysiajs/cors";
 import DodoPayments from "dodopayments";
 import { connectDB } from "./db";
 import { Subscription, DeviceToken } from "./models";
+import { authRoutes } from "./auth";
+import { loggingMiddleware, logger, colors, CURRENT_LOG_LEVEL } from "./middleware/logging";
 
 // Initialize Dodo Payments
 const dodo = new DodoPayments({
@@ -15,20 +17,33 @@ await connectDB();
 
 const app = new Elysia()
   .use(cors())
+  .use(loggingMiddleware)
+  .decorate("logger", logger)
+
+  // ==================== AUTH ====================
+  .use(authRoutes)
 
   // ==================== SUBSCRIPTIONS ====================
   .group("/subscriptions", (app) =>
     app
       // GET all subscriptions
-      .get("/", async () => {
+      .get("/", async ({ request }) => {
+        const requestId = request.__log?.id || "unknown";
+        logger.logDBOperation(requestId, "FIND", "subscriptions", { filter: {}, sort: { next_billing: 1 } });
+        
         const subscriptions = await Subscription.find({}).sort({
           next_billing: 1,
         });
+        
+        logger.logDBOperation(requestId, "FIND_COMPLETE", "subscriptions", { count: subscriptions.length });
         return subscriptions;
       })
 
       // GET subscription summary (for dashboard)
-      .get("/summary", async () => {
+      .get("/summary", async ({ request }) => {
+        const requestId = request.__log?.id || "unknown";
+        logger.logDBOperation(requestId, "FIND", "subscriptions", { filter: { status: "active" } });
+        
         const activeSubscriptions = await Subscription.find({
           status: "active",
         });
@@ -42,6 +57,11 @@ const app = new Elysia()
         const now = new Date();
         const sevenDaysLater = new Date();
         sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+        logger.logDBOperation(requestId, "AGGREGATE", "subscriptions", { 
+          operation: "renewals_within_7_days",
+          count: activeSubscriptions.length 
+        });
 
         const renewingSoon = activeSubscriptions
           .filter((sub) => {
@@ -70,11 +90,16 @@ const app = new Elysia()
       // POST create new subscription
       .post(
         "/",
-        async ({ body }) => {
+        async ({ request, body }) => {
+          const requestId = request.__log?.id || "unknown";
+          logger.logDBOperation(requestId, "CREATE", "subscriptions", { provider: body.provider, amount: body.amount });
+          
           const subscription = await Subscription.create({
             ...body,
             next_billing: new Date(body.next_billing),
           });
+          
+          logger.logDBOperation(requestId, "CREATE_COMPLETE", "subscriptions", { id: subscription._id });
           return subscription;
         },
         {
@@ -93,12 +118,22 @@ const app = new Elysia()
       // PATCH update subscription status (pause/resume/cancel)
       .patch(
         "/:id/status",
-        async ({ params, body }) => {
+        async ({ request, params, body }) => {
+          const requestId = request.__log?.id || "unknown";
+          logger.logDBOperation(requestId, "UPDATE", "subscriptions", { id: params.id, status: body.status });
+          
           const subscription = await Subscription.findByIdAndUpdate(
             params.id,
             { status: body.status },
             { new: true },
           );
+          
+          if (!subscription) {
+            logger.warn(`[${requestId}] Subscription not found: ${params.id}`);
+          } else {
+            logger.logDBOperation(requestId, "UPDATE_COMPLETE", "subscriptions", { id: subscription._id, newStatus: body.status });
+          }
+          
           return subscription;
         },
         {
@@ -107,8 +142,18 @@ const app = new Elysia()
       )
 
       // DELETE subscription
-      .delete("/:id", async ({ params }) => {
-        await Subscription.findByIdAndDelete(params.id);
+      .delete("/:id", async ({ request, params }) => {
+        const requestId = request.__log?.id || "unknown";
+        logger.logDBOperation(requestId, "DELETE", "subscriptions", { id: params.id });
+        
+        const result = await Subscription.findByIdAndDelete(params.id);
+        
+        if (!result) {
+          logger.warn(`[${requestId}] Subscription not found for deletion: ${params.id}`);
+        } else {
+          logger.logDBOperation(requestId, "DELETE_COMPLETE", "subscriptions", { id: params.id });
+        }
+        
         return { success: true };
       }),
   )
@@ -116,13 +161,23 @@ const app = new Elysia()
   // ==================== CHECKOUT (Dodo Payments) ====================
   .post(
     "/checkout",
-    async ({ body }) => {
-      const session = await dodo.checkoutSessions.create({
-        product_cart: [{ product_id: body.productId, quantity: 1 }],
-        customer: { email: body.email, name: body.name },
-        return_url: "subsentinel://payment-success",
-      });
-      return { url: session.checkout_url };
+    async ({ request, body }) => {
+      const requestId = request.__log?.id || "unknown";
+      logger.info(`[${requestId}] Creating checkout session for product: ${body.productId}, customer: ${body.email}`);
+      
+      try {
+        const session = await dodo.checkoutSessions.create({
+          product_cart: [{ product_id: body.productId, quantity: 1 }],
+          customer: { email: body.email, name: body.name },
+          return_url: "subsentinel://payment-success",
+        });
+        
+        logger.info(`[${requestId}] Checkout session created successfully: ${session.checkout_url}`);
+        return { url: session.checkout_url };
+      } catch (error) {
+        logger.error(`[${requestId}] Failed to create checkout session:`, error);
+        throw error;
+      }
     },
     {
       body: t.Object({
@@ -136,12 +191,20 @@ const app = new Elysia()
   // ==================== DEVICE REGISTRATION (FCM) ====================
   .post(
     "/register-device",
-    async ({ body }) => {
+    async ({ request, body }) => {
+      const requestId = request.__log?.id || "unknown";
+      logger.logDBOperation(requestId, "UPSERT", "device_tokens", { 
+        token: body.token.substring(0, 10) + "...", 
+        platform: body.platform 
+      });
+      
       const device = await DeviceToken.findOneAndUpdate(
         { token: body.token },
         { userId: body.userId, platform: body.platform },
         { upsert: true, new: true },
       );
+      
+      logger.logDBOperation(requestId, "UPSERT_COMPLETE", "device_tokens", { id: device._id });
       return device;
     },
     {
@@ -154,10 +217,27 @@ const app = new Elysia()
   )
 
   // ==================== HEALTH CHECK ====================
-  .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
+  .get("/health", ({ request }) => {
+    const requestId = request.__log?.id || "unknown";
+    logger.debug(`[${requestId}] Health check requested`);
+    return { status: "ok", timestamp: new Date().toISOString(), requestId };
+  })
+
+  .get("/", () => ({
+    status: "SubSentinel Backend",
+    message: "Welcome to SubSentinel Backend",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+  }))
 
   .listen(3000);
 
 console.log(
-  `🚀 SubSentinel Backend running at ${app.server?.hostname}:${app.server?.port}`,
+  `${colors.green}🚀 SubSentinel Backend running at ${app.server?.hostname}:${app.server?.port}${colors.reset}`,
+);
+console.log(
+  `${colors.cyan}📊 Logging level: ${CURRENT_LOG_LEVEL.toUpperCase()}${colors.reset}`
+);
+console.log(
+  `${colors.gray}   Request logs include: timestamp, duration, status, body, headers, and more${colors.reset}`
 );

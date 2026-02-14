@@ -9,7 +9,10 @@
     "@elysiajs/cors": "^1.4.1",
     "dodopayments": "^2.19.0",
     "elysia": "latest",
-    "mongoose": "^9.1.6"
+    "firebase-admin": "^13.6.1",
+    "google-auth-library": "^10.5.0",
+    "mongoose": "^9.1.6",
+    "twilio": "^5.12.1"
   },
   "devDependencies": {
     "@types/mongoose": "^5.11.97",
