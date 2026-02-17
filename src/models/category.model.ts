@@ -1,4 +1,11 @@
-import { Schema, model, models, type Document, type Model, type Types } from "mongoose";
+import {
+  Schema,
+  model,
+  models,
+  type Document,
+  type Model,
+  type Types,
+} from "mongoose";
 
 export interface ICategory extends Document {
   name: string;
@@ -6,7 +13,7 @@ export interface ICategory extends Document {
   color: string;
   logoUrl?: string;
   isDefault: boolean;
-  userId?: Types.ObjectId;
+  userId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }

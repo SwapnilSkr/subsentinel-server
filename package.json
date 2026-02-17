@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
+    "bcryptjs": "^3.0.3",
     "dodopayments": "^2.19.0",
     "elysia": "latest",
     "firebase-admin": "^13.6.1",

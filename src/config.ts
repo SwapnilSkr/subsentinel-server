@@ -14,28 +14,31 @@ export const ENV = {
   // App
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: parseInt(process.env.PORT || "3000", 10),
-  
+
   // Database
-  MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017/sub_auditor",
-  
+  MONGODB_URI:
+    process.env.MONGODB_URI || "mongodb://localhost:27017/sub_auditor",
+
   // Twilio
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || "AC_MOCK_SID",
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || "MOCK_TOKEN",
-  TWILIO_VERIFY_SERVICE_SID: process.env.TWILIO_VERIFY_SERVICE_SID || "VA_MOCK_SERVICE",
-  
+  TWILIO_VERIFY_SERVICE_SID:
+    process.env.TWILIO_VERIFY_SERVICE_SID || "VA_MOCK_SERVICE",
+
   // Dodo Payments
   DODO_PAYMENTS_API_KEY: process.env.DODO_PAYMENTS_API_KEY || "test_token",
-  DODO_PAYMENTS_ENVIRONMENT: (process.env.DODO_PAYMENTS_ENVIRONMENT || "test_mode") as "test_mode" | "live_mode",
+  DODO_PAYMENTS_ENVIRONMENT: (process.env.DODO_PAYMENTS_ENVIRONMENT ||
+    "test_mode") as "test_mode" | "live_mode",
 
   // JWT
   JWT_SECRET: process.env.JWT_SECRET || generatedDevJwtSecret,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
-  
+
   // Firebase (optional - will use other methods if not provided)
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
   FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY,
-  
+
   // Admin
   ADMIN_USERNAME: process.env.ADMIN_USERNAME || "admin",
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "admin123",
@@ -47,7 +50,8 @@ export const ENV = {
   AWS_S3_BUCKET: process.env.AWS_S3_BUCKET || "",
 
   // Logging
-  LOG_LEVEL: (process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") || "debug",
+  LOG_LEVEL:
+    (process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") || "debug",
 };
 
 // ============================================
@@ -114,7 +118,10 @@ export function initializeFirebase(): void {
       console.log("⚠️  Firebase initialized with default credentials");
     }
   } catch (error) {
-    console.error("❌ Firebase Admin initialization failed. Check credentials.", error);
+    console.error(
+      "❌ Firebase Admin initialization failed. Check credentials.",
+      error,
+    );
     throw error;
   }
 }
@@ -128,13 +135,13 @@ export function initializeFirebase(): void {
  */
 export function initializeTwilio(): void {
   const isMock = ENV.TWILIO_ACCOUNT_SID === "AC_MOCK_SID";
-  
+
   if (isMock) {
     console.log("⚠️  Twilio running in MOCK mode");
   } else {
     console.log("✅ Twilio initialized");
   }
-  
+
   twilioClient = twilio(ENV.TWILIO_ACCOUNT_SID, ENV.TWILIO_AUTH_TOKEN);
 }
 
@@ -147,13 +154,15 @@ export function initializeTwilio(): void {
  */
 export function initializeDodoPayments(): void {
   const isTestMode = ENV.DODO_PAYMENTS_ENVIRONMENT === "test_mode";
-  
+
   dodoClient = new DodoPayments({
     bearerToken: ENV.DODO_PAYMENTS_API_KEY,
     environment: ENV.DODO_PAYMENTS_ENVIRONMENT,
   });
-  
-  console.log(`${isTestMode ? "⚠️" : "✅"} Dodo Payments initialized (${ENV.DODO_PAYMENTS_ENVIRONMENT})`);
+
+  console.log(
+    `${isTestMode ? "⚠️" : "✅"} Dodo Payments initialized (${ENV.DODO_PAYMENTS_ENVIRONMENT})`,
+  );
 }
 
 // ============================================
@@ -176,11 +185,11 @@ export function initializeServices(): void {
       "⚠️  JWT_SECRET not set. Generated an ephemeral development secret.",
     );
   }
-  
+
   initializeFirebase();
   initializeTwilio();
   initializeDodoPayments();
-  
+
   console.log("\n✅ All services initialized\n");
 }
 
