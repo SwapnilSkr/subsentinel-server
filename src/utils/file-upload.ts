@@ -16,6 +16,7 @@ const ALLOWED_MIME_TYPES = new Set([
 	"image/x-icon",
 	"image/bmp",
 	"image/tiff",
+	"image/vnd.adobe.photoshop",
 ]);
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
