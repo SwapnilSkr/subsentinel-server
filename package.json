@@ -1,25 +1,26 @@
 {
-  "name": "server",
-  "version": "1.0.50",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
-  },
-  "dependencies": {
-    "@elysiajs/cors": "^1.4.1",
-    "bcryptjs": "^3.0.3",
-    "dodopayments": "^2.19.0",
-    "elysia": "latest",
-    "firebase-admin": "^13.6.1",
-    "google-auth-library": "^10.5.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^9.1.6",
-    "twilio": "^5.12.1"
-  },
-  "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/mongoose": "^5.11.97",
-    "bun-types": "latest"
-  },
-  "module": "src/index.js"
+	"name": "server",
+	"version": "1.0.50",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"dev": "bun run --watch src/index.ts"
+	},
+	"dependencies": {
+		"@elysiajs/cors": "^1.4.1",
+		"bcryptjs": "^3.0.3",
+		"dodopayments": "^2.19.0",
+		"elysia": "latest",
+		"firebase-admin": "^13.6.1",
+		"google-auth-library": "^10.5.0",
+		"jsonwebtoken": "^9.0.2",
+		"mongoose": "^9.1.6",
+		"twilio": "^5.12.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.4",
+		"@types/jsonwebtoken": "^9.0.10",
+		"@types/mongoose": "^5.11.97",
+		"bun-types": "latest"
+	},
+	"module": "src/index.js"
 }

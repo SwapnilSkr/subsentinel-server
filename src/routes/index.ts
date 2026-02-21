@@ -1,8 +1,9 @@
 // Routes barrel export
+
+export { adminRoutes } from "./admin";
 export { authRoutes } from "./auth";
-export { subscriptionRoutes } from "./subscriptions";
-export { paymentRoutes } from "./payments";
+export { categoryRoutes } from "./categories";
 export { deviceRoutes } from "./devices";
 export { healthRoutes } from "./health";
-export { categoryRoutes } from "./categories";
-export { adminRoutes } from "./admin";
+export { paymentRoutes } from "./payments";
+export { subscriptionRoutes } from "./subscriptions";

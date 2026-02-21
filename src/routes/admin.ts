@@ -1,243 +1,205 @@
-import { Elysia, t } from "elysia";
-import {
-  loginAdmin,
-  adminGetAllCategories,
-  adminCreateCategory,
-  adminUpdateCategory,
-  adminDeleteCategory,
-  adminGetAllSubscriptions,
-  adminCreateSubscription,
-  adminUpdateSubscription,
-  adminDeleteSubscription,
-} from "../services";
+import { type Elysia, t } from "elysia";
 import { requireAdminAuth } from "../middleware/auth";
 import {
-  extractFieldsAndFile,
-  validateFile,
-  type MultipartFields,
-} from "../utils/file-upload";
-import { uploadFileToS3 } from "../services";
-
-interface CategoryFormData {
-  name: string;
-  icon: string;
-  color: string;
-  logoUrl?: string;
-}
-
-interface SubscriptionFormData {
-  provider: string;
-  amount: string;
-  currency?: string;
-  categoryId?: string;
-  logoUrl?: string;
-}
-
-async function processCategoryRequest(
-  request: Request,
-  body: any,
-): Promise<any> {
-  const contentType = request.headers.get("content-type");
-
-  if (!contentType?.includes("multipart/form-data")) {
-    return body;
-  }
-
-  const { fields, file } = await extractFieldsAndFile(request);
-
-  const result: any = {
-    name: fields.name,
-    icon: fields.icon,
-    color: fields.color,
-  };
-
-  if (fields.logoUrl) {
-    result.logoUrl = fields.logoUrl;
-  }
-
-  if (file) {
-    validateFile(file);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    result.logoUrl = await uploadFileToS3(buffer, file.name, file.type);
-  }
-
-  return result;
-}
-
-async function processSubscriptionRequest(
-  request: Request,
-  body: any,
-): Promise<any> {
-  const contentType = request.headers.get("content-type");
-
-  if (!contentType?.includes("multipart/form-data")) {
-    return body;
-  }
-
-  const { fields, file } = await extractFieldsAndFile(request);
-
-  const result: any = {
-    provider: fields.provider,
-    amount: Number(fields.amount),
-  };
-
-  if (fields.currency) {
-    result.currency = fields.currency;
-  }
-
-  if (fields.categoryId) {
-    result.categoryId = fields.categoryId;
-  }
-
-  if (fields.logoUrl) {
-    result.logoUrl = fields.logoUrl;
-  }
-
-  if (file) {
-    validateFile(file);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    result.logoUrl = await uploadFileToS3(buffer, file.name, file.type);
-  }
-
-  return result;
-}
+	adminCreateCategory,
+	adminCreateSubscription,
+	adminDeleteCategory,
+	adminDeleteSubscription,
+	adminGetAllCategories,
+	adminGetAllSubscriptions,
+	adminUpdateCategory,
+	adminUpdateSubscription,
+	loginAdmin,
+	uploadFileToS3,
+} from "../services";
+import { handleRouteError } from "../utils/error-handler";
+import { validateFile } from "../utils/file-upload";
 
 export const adminRoutes = (app: Elysia) =>
-  app.group("/admin", (app) =>
-    app
-      .post(
-        "/auth/login",
-        async ({ body, set }) => {
-          try {
-            const result = await loginAdmin(body.username, body.password);
-            return result;
-          } catch (error: any) {
-            set.status = 401;
-            return { success: false, error: error.message };
-          }
-        },
-        {
-          body: t.Object({
-            username: t.String(),
-            password: t.String(),
-          }),
-        },
-      )
+	app.group("/admin", (app) =>
+		app
+			.onError(handleRouteError)
 
-      .guard({ beforeHandle: requireAdminAuth }, (app) =>
-        app
-          .post("/upload", async ({ request, set }) => {
-            try {
-              const formData = await request.formData();
-              const file = formData.get("file");
+			.post(
+				"/auth/login",
+				async ({ body }) => {
+					return await loginAdmin(body.username, body.password);
+				},
+				{
+					body: t.Object({
+						username: t.String(),
+						password: t.String(),
+					}),
+				},
+			)
 
-              if (!file || !(file instanceof File)) {
-                set.status = 400;
-                return { success: false, error: "No file provided" };
-              }
+			.guard({ beforeHandle: requireAdminAuth }, (app) =>
+				app
+					.post(
+						"/upload",
+						async ({ body: { file } }) => {
+							validateFile(file);
+							const buffer = Buffer.from(await file.arrayBuffer());
+							const url = await uploadFileToS3(buffer, file.name, file.type);
+							return { success: true, url };
+						},
+						{
+							body: t.Object({
+								file: t.File(),
+							}),
+						},
+					)
 
-              validateFile(file);
-              const buffer = Buffer.from(await file.arrayBuffer());
-              const url = await uploadFileToS3(buffer, file.name, file.type);
-              return { success: true, url };
-            } catch (error: any) {
-              set.status = 500;
-              return { success: false, error: error.message };
-            }
-          })
+					.get("/categories", async () => {
+						return await adminGetAllCategories();
+					})
 
-          .get("/categories", async () => {
-            return await adminGetAllCategories();
-          })
+					.post(
+						"/categories",
+						async ({ body }) => {
+							const { logo, ...fields } = body;
+							let logoUrl = fields.logoUrl;
 
-          .post(
-            "/categories",
-            async ({ request, set }) => {
-              try {
-                const data = await processCategoryRequest(request, null);
-                return await adminCreateCategory(data);
-              } catch (error: any) {
-                set.status = 400;
-                return { success: false, error: error.message };
-              }
-            },
-          )
+							if (logo) {
+								validateFile(logo);
+								const buffer = Buffer.from(await logo.arrayBuffer());
+								logoUrl = await uploadFileToS3(buffer, logo.name, logo.type);
+							}
 
-          .patch(
-            "/categories/:id",
-            async ({ request, params, set }) => {
-              try {
-                const data = await processCategoryRequest(request, null);
-                const result = await adminUpdateCategory(params.id, data);
-                if (!result) {
-                  set.status = 404;
-                  return { success: false, error: "Category not found" };
-                }
-                return result;
-              } catch (error: any) {
-                set.status = 400;
-                return { success: false, error: error.message };
-              }
-            },
-          )
+							return await adminCreateCategory({
+								...fields,
+								logoUrl,
+							});
+						},
+						{
+							body: t.Object({
+								name: t.String(),
+								icon: t.String(),
+								color: t.String(),
+								logoUrl: t.Optional(t.String()),
+								logo: t.Optional(t.File()),
+							}),
+						},
+					)
 
-          .delete("/categories/:id", async ({ params, set }) => {
-            const deleted = await adminDeleteCategory(params.id);
-            if (!deleted) {
-              set.status = 404;
-              return { success: false, error: "Category not found" };
-            }
-            return { success: true };
-          })
+					.patch(
+						"/categories/:id",
+						async ({ body, params }) => {
+							const { logo, ...fields } = body;
+							let logoUrl = fields.logoUrl;
 
-          .get("/subscriptions", async () => {
-            return await adminGetAllSubscriptions();
-          })
+							if (logo) {
+								validateFile(logo);
+								const buffer = Buffer.from(await logo.arrayBuffer());
+								logoUrl = await uploadFileToS3(buffer, logo.name, logo.type);
+							}
 
-          .post(
-            "/subscriptions",
-            async ({ request, set }) => {
-              try {
-                const data = await processSubscriptionRequest(request, null);
-                return await adminCreateSubscription(data);
-              } catch (error: any) {
-                set.status = 400;
-                return { success: false, error: error.message };
-              }
-            },
-          )
+							const result = await adminUpdateCategory(params.id, {
+								...fields,
+								logoUrl,
+							});
 
-          .patch(
-            "/subscriptions/:id",
-            async ({ request, params, set }) => {
-              try {
-                const data = await processSubscriptionRequest(request, null);
-                const result = await adminUpdateSubscription(params.id, data);
-                if (!result) {
-                  set.status = 404;
-                  return {
-                    success: false,
-                    error: "Subscription template not found",
-                  };
-                }
-                return result;
-              } catch (error: any) {
-                set.status = 400;
-                return { success: false, error: error.message };
-              }
-            },
-          )
+							if (!result) {
+								throw new Error("Category not found");
+							}
 
-          .delete("/subscriptions/:id", async ({ params, set }) => {
-            const deleted = await adminDeleteSubscription(params.id);
-            if (!deleted) {
-              set.status = 404;
-              return {
-                success: false,
-                error: "Subscription template not found",
-              };
-            }
-            return { success: true };
-          }),
-      ),
-  );
+							return result;
+						},
+						{
+							body: t.Object({
+								name: t.Optional(t.String()),
+								icon: t.Optional(t.String()),
+								color: t.Optional(t.String()),
+								logoUrl: t.Optional(t.String()),
+								logo: t.Optional(t.File()),
+							}),
+						},
+					)
+
+					.delete("/categories/:id", async ({ params }) => {
+						const deleted = await adminDeleteCategory(params.id);
+						if (!deleted) {
+							throw new Error("Category not found");
+						}
+						return { success: true };
+					})
+
+					.get("/subscriptions", async () => {
+						return await adminGetAllSubscriptions();
+					})
+
+					.post(
+						"/subscriptions",
+						async ({ body }) => {
+							const { logo, amount, ...fields } = body;
+							let logoUrl = fields.logoUrl;
+
+							if (logo) {
+								validateFile(logo);
+								const buffer = Buffer.from(await logo.arrayBuffer());
+								logoUrl = await uploadFileToS3(buffer, logo.name, logo.type);
+							}
+
+							return await adminCreateSubscription({
+								...fields,
+								amount,
+								logoUrl,
+							});
+						},
+						{
+							body: t.Object({
+								provider: t.String(),
+								amount: t.Numeric(),
+								currency: t.Optional(t.String()),
+								categoryId: t.Optional(t.String()),
+								logoUrl: t.Optional(t.String()),
+								logo: t.Optional(t.File()),
+							}),
+						},
+					)
+
+					.patch(
+						"/subscriptions/:id",
+						async ({ body, params }) => {
+							const { logo, amount, ...fields } = body;
+							let logoUrl = fields.logoUrl;
+
+							if (logo) {
+								validateFile(logo);
+								const buffer = Buffer.from(await logo.arrayBuffer());
+								logoUrl = await uploadFileToS3(buffer, logo.name, logo.type);
+							}
+
+							const result = await adminUpdateSubscription(params.id, {
+								...fields,
+								amount,
+								logoUrl,
+							});
+
+							if (!result) {
+								throw new Error("Subscription template not found");
+							}
+
+							return result;
+						},
+						{
+							body: t.Object({
+								provider: t.Optional(t.String()),
+								amount: t.Optional(t.Numeric()),
+								currency: t.Optional(t.String()),
+								categoryId: t.Optional(t.String()),
+								logoUrl: t.Optional(t.String()),
+								logo: t.Optional(t.File()),
+							}),
+						},
+					)
+
+					.delete("/subscriptions/:id", async ({ params }) => {
+						const deleted = await adminDeleteSubscription(params.id);
+						if (!deleted) {
+							throw new Error("Subscription template not found");
+						}
+						return { success: true };
+					}),
+			),
+	);
