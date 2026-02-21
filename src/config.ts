@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import twilio from "twilio";
 import DodoPayments from "dodopayments";
 import { randomBytes } from "crypto";
+import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 // ============================================
 // Environment Configuration
@@ -165,6 +166,29 @@ export function initializeDodoPayments(): void {
   );
 }
 
+async function initializeAWS(): Promise<void> {
+  if (!ENV.AWS_ACCESS_KEY_ID || !ENV.AWS_SECRET_ACCESS_KEY || !ENV.AWS_S3_BUCKET) {
+    console.log("⚠️  AWS S3 credentials not configured");
+    return;
+  }
+
+  try {
+    const s3Client = new S3Client({
+      region: ENV.AWS_REGION,
+      credentials: {
+        accessKeyId: ENV.AWS_ACCESS_KEY_ID,
+        secretAccessKey: ENV.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+
+    await s3Client.send(new HeadBucketCommand({ Bucket: ENV.AWS_S3_BUCKET }));
+    console.log("✅ AWS S3 initialized");
+  } catch (error) {
+    console.error("❌ AWS S3 initialization failed. Check credentials.", error);
+    throw error;
+  }
+}
+
 // ============================================
 // Master Initialization Function
 // ============================================
@@ -173,7 +197,7 @@ export function initializeDodoPayments(): void {
  * Initialize all external services
  * Call this at application startup
  */
-export function initializeServices(): void {
+export async function initializeServices(): Promise<void> {
   console.log("\n🚀 Initializing services...\n");
 
   if (ENV.NODE_ENV === "production" && !hasJwtSecretInEnv) {
@@ -189,6 +213,7 @@ export function initializeServices(): void {
   initializeFirebase();
   initializeTwilio();
   initializeDodoPayments();
+  await initializeAWS();
 
   console.log("\n✅ All services initialized\n");
 }

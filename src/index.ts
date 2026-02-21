@@ -21,7 +21,7 @@ import {
 
 // Initialize all external services and database
 await connectDB();
-initializeServices();
+await initializeServices();
 // await runAllSeeders();
 
 const app = new Elysia()
