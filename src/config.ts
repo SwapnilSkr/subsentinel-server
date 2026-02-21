@@ -166,8 +166,19 @@ export function initializeDodoPayments(): void {
   );
 }
 
+// ============================================
+// AWS client Initialization
+// ============================================
+
+/**
+ * Initialize AWS Client
+ */
 async function initializeAWS(): Promise<void> {
-  if (!ENV.AWS_ACCESS_KEY_ID || !ENV.AWS_SECRET_ACCESS_KEY || !ENV.AWS_S3_BUCKET) {
+  if (
+    !ENV.AWS_ACCESS_KEY_ID ||
+    !ENV.AWS_SECRET_ACCESS_KEY ||
+    !ENV.AWS_S3_BUCKET
+  ) {
     console.log("⚠️  AWS S3 credentials not configured");
     return;
   }

@@ -9,14 +9,102 @@ import {
   adminCreateSubscription,
   adminUpdateSubscription,
   adminDeleteSubscription,
-  uploadFileToS3,
 } from "../services";
 import { requireAdminAuth } from "../middleware/auth";
+import {
+  extractFieldsAndFile,
+  validateFile,
+  type MultipartFields,
+} from "../utils/file-upload";
+import { uploadFileToS3 } from "../services";
+
+interface CategoryFormData {
+  name: string;
+  icon: string;
+  color: string;
+  logoUrl?: string;
+}
+
+interface SubscriptionFormData {
+  provider: string;
+  amount: string;
+  currency?: string;
+  categoryId?: string;
+  logoUrl?: string;
+}
+
+async function processCategoryRequest(
+  request: Request,
+  body: any,
+): Promise<any> {
+  const contentType = request.headers.get("content-type");
+
+  if (!contentType?.includes("multipart/form-data")) {
+    return body;
+  }
+
+  const { fields, file } = await extractFieldsAndFile(request);
+
+  const result: any = {
+    name: fields.name,
+    icon: fields.icon,
+    color: fields.color,
+  };
+
+  if (fields.logoUrl) {
+    result.logoUrl = fields.logoUrl;
+  }
+
+  if (file) {
+    validateFile(file);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    result.logoUrl = await uploadFileToS3(buffer, file.name, file.type);
+  }
+
+  return result;
+}
+
+async function processSubscriptionRequest(
+  request: Request,
+  body: any,
+): Promise<any> {
+  const contentType = request.headers.get("content-type");
+
+  if (!contentType?.includes("multipart/form-data")) {
+    return body;
+  }
+
+  const { fields, file } = await extractFieldsAndFile(request);
+
+  const result: any = {
+    provider: fields.provider,
+    amount: Number(fields.amount),
+  };
+
+  if (fields.currency) {
+    result.currency = fields.currency;
+  }
+
+  if (fields.categoryId) {
+    result.categoryId = fields.categoryId;
+  }
+
+  if (fields.logoUrl) {
+    result.logoUrl = fields.logoUrl;
+  }
+
+  if (file) {
+    validateFile(file);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    result.logoUrl = await uploadFileToS3(buffer, file.name, file.type);
+  }
+
+  return result;
+}
 
 export const adminRoutes = (app: Elysia) =>
   app.group("/admin", (app) =>
     app
-      // Public: Admin login
       .post(
         "/auth/login",
         async ({ body, set }) => {
@@ -36,10 +124,8 @@ export const adminRoutes = (app: Elysia) =>
         },
       )
 
-      // Protected admin routes
       .guard({ beforeHandle: requireAdminAuth }, (app) =>
         app
-          // File upload
           .post("/upload", async ({ request, set }) => {
             try {
               const formData = await request.formData();
@@ -50,6 +136,7 @@ export const adminRoutes = (app: Elysia) =>
                 return { success: false, error: "No file provided" };
               }
 
+              validateFile(file);
               const buffer = Buffer.from(await file.arrayBuffer());
               const url = await uploadFileToS3(buffer, file.name, file.type);
               return { success: true, url };
@@ -59,43 +146,41 @@ export const adminRoutes = (app: Elysia) =>
             }
           })
 
-          // Category CRUD
           .get("/categories", async () => {
             return await adminGetAllCategories();
           })
+
           .post(
             "/categories",
-            async ({ body }) => {
-              return await adminCreateCategory(body);
-            },
-            {
-              body: t.Object({
-                name: t.String(),
-                icon: t.String(),
-                color: t.String(),
-                logoUrl: t.Optional(t.String()),
-              }),
+            async ({ request, set }) => {
+              try {
+                const data = await processCategoryRequest(request, null);
+                return await adminCreateCategory(data);
+              } catch (error: any) {
+                set.status = 400;
+                return { success: false, error: error.message };
+              }
             },
           )
+
           .patch(
             "/categories/:id",
-            async ({ params, body, set }) => {
-              const result = await adminUpdateCategory(params.id, body);
-              if (!result) {
-                set.status = 404;
-                return { success: false, error: "Category not found" };
+            async ({ request, params, set }) => {
+              try {
+                const data = await processCategoryRequest(request, null);
+                const result = await adminUpdateCategory(params.id, data);
+                if (!result) {
+                  set.status = 404;
+                  return { success: false, error: "Category not found" };
+                }
+                return result;
+              } catch (error: any) {
+                set.status = 400;
+                return { success: false, error: error.message };
               }
-              return result;
-            },
-            {
-              body: t.Object({
-                name: t.Optional(t.String()),
-                icon: t.Optional(t.String()),
-                color: t.Optional(t.String()),
-                logoUrl: t.Optional(t.String()),
-              }),
             },
           )
+
           .delete("/categories/:id", async ({ params, set }) => {
             const deleted = await adminDeleteCategory(params.id);
             if (!deleted) {
@@ -105,50 +190,52 @@ export const adminRoutes = (app: Elysia) =>
             return { success: true };
           })
 
-          // Subscription Template CRUD
           .get("/subscriptions", async () => {
             return await adminGetAllSubscriptions();
           })
+
           .post(
             "/subscriptions",
-            async ({ body }) => {
-              return await adminCreateSubscription(body);
-            },
-            {
-              body: t.Object({
-                provider: t.String(),
-                amount: t.Number(),
-                currency: t.Optional(t.String()),
-                categoryId: t.Optional(t.String()),
-                logoUrl: t.Optional(t.String()),
-              }),
+            async ({ request, set }) => {
+              try {
+                const data = await processSubscriptionRequest(request, null);
+                return await adminCreateSubscription(data);
+              } catch (error: any) {
+                set.status = 400;
+                return { success: false, error: error.message };
+              }
             },
           )
+
           .patch(
             "/subscriptions/:id",
-            async ({ params, body, set }) => {
-              const result = await adminUpdateSubscription(params.id, body);
-              if (!result) {
-                set.status = 404;
-                return { success: false, error: "Subscription template not found" };
+            async ({ request, params, set }) => {
+              try {
+                const data = await processSubscriptionRequest(request, null);
+                const result = await adminUpdateSubscription(params.id, data);
+                if (!result) {
+                  set.status = 404;
+                  return {
+                    success: false,
+                    error: "Subscription template not found",
+                  };
+                }
+                return result;
+              } catch (error: any) {
+                set.status = 400;
+                return { success: false, error: error.message };
               }
-              return result;
-            },
-            {
-              body: t.Object({
-                provider: t.Optional(t.String()),
-                amount: t.Optional(t.Number()),
-                currency: t.Optional(t.String()),
-                categoryId: t.Optional(t.String()),
-                logoUrl: t.Optional(t.String()),
-              }),
             },
           )
+
           .delete("/subscriptions/:id", async ({ params, set }) => {
             const deleted = await adminDeleteSubscription(params.id);
             if (!deleted) {
               set.status = 404;
-              return { success: false, error: "Subscription template not found" };
+              return {
+                success: false,
+                error: "Subscription template not found",
+              };
             }
             return { success: true };
           }),
