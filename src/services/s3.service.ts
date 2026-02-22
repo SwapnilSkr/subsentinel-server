@@ -24,7 +24,7 @@ export async function uploadFileToS3(
 	mimeType: string,
 ): Promise<string> {
 	const ext = path.extname(originalName) || ".bin";
-	const key = `uploads/${randomUUID()}${ext}`;
+	const key = `defaults/${randomUUID()}${ext}`;
 
 	const command = new PutObjectCommand({
 		Bucket: ENV.AWS_S3_BUCKET,

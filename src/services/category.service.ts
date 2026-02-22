@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { Category } from "../models";
+import { ENV } from "../config";
 
 /**
  * Get all categories (defaults + user's custom)
@@ -25,8 +26,11 @@ export async function createCategory(
 	data: { name: string; icon: string; color: string; logoUrl?: string },
 	userId: string,
 ): Promise<any> {
+	const logoUrl = data.logoUrl || ENV.DEFAULT_CATEGORY_LOGO_URL || undefined;
+
 	return await Category.create({
 		...data,
+		logoUrl,
 		isDefault: false,
 		userId: new Types.ObjectId(userId),
 	});

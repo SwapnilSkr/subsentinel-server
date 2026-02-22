@@ -50,6 +50,11 @@ export const ENV = {
 	AWS_REGION: process.env.AWS_REGION || "us-east-1",
 	AWS_S3_BUCKET: process.env.AWS_S3_BUCKET || "",
 
+	// Default Logo URLs
+	DEFAULT_CATEGORY_LOGO_URL: process.env.DEFAULT_CATEGORY_LOGO_URL || "",
+	DEFAULT_SUBSCRIPTION_LOGO_URL:
+		process.env.DEFAULT_SUBSCRIPTION_LOGO_URL || "",
+
 	// Logging
 	LOG_LEVEL:
 		(process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") || "debug",

@@ -1,5 +1,6 @@
 import { Subscription, User, type ISubscription } from "../models";
 import { Types } from "mongoose";
+import { ENV } from "../config";
 
 // --- Interfaces ---
 
@@ -120,6 +121,8 @@ export async function createSubscription(
 ): Promise<ISubscription> {
 	const ownerId = await resolveUserId(userId);
 
+	const logoUrl = data.logoUrl || ENV.DEFAULT_SUBSCRIPTION_LOGO_URL || undefined;
+
 	const createData: Partial<ISubscription> = {
 		provider: data.provider,
 		amount: data.amount,
@@ -127,11 +130,8 @@ export async function createSubscription(
 		next_billing: new Date(data.next_billing),
 		status: data.status,
 		isDefault: false,
+		logoUrl,
 	};
-
-	if (data.logoUrl) {
-		createData.logoUrl = data.logoUrl;
-	}
 
 	if (data.categoryId && Types.ObjectId.isValid(data.categoryId)) {
 		createData.categoryId = new Types.ObjectId(data.categoryId);

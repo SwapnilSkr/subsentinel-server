@@ -15,6 +15,7 @@ import {
 	deviceRoutes,
 	healthRoutes,
 	paymentRoutes,
+	preferencesRoutes,
 	subscriptionRoutes,
 } from "./routes";
 
@@ -34,6 +35,7 @@ const app = new Elysia()
 	.use(authRoutes)
 	.use(subscriptionRoutes)
 	.use(categoryRoutes)
+	.use(preferencesRoutes)
 	.use(adminRoutes)
 	.use(paymentRoutes)
 	.use(deviceRoutes)
