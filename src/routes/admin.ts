@@ -5,6 +5,7 @@ import {
 	adminCreateSubscription,
 	adminDeleteCategory,
 	adminDeleteSubscription,
+	adminDeleteUser,
 	adminGetAllCategories,
 	adminGetAllSubscriptions,
 	adminUpdateCategory,
@@ -200,6 +201,11 @@ export const adminRoutes = (app: Elysia) =>
 							throw new Error("Subscription template not found");
 						}
 						return { success: true };
+					})
+
+					.delete("/users/:id", async ({ params }) => {
+						const deleted = await adminDeleteUser(params.id);
+						return { success: true, deleted };
 					}),
 			),
 	);

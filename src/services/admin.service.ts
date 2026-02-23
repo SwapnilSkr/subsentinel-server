@@ -1,11 +1,15 @@
 import bcrypt from "bcryptjs";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
+import { Types } from "mongoose";
 
-import { ENV } from "../config";
+import { ENV, admin as firebaseAdmin } from "../config";
 import {
 	Admin,
 	Category,
 	Subscription,
+	User,
+	UserPreferences,
+	DeviceToken,
 	type IAdmin,
 	type ICategory,
 	type ISubscription,
@@ -148,4 +152,91 @@ export async function adminDeleteSubscription(id: string): Promise<boolean> {
 		isDefault: true,
 	});
 	return result !== null;
+}
+
+// --- Admin User Deletion ---
+
+export interface DeleteUserResult {
+	user: boolean;
+	preferences: boolean;
+	devices: number;
+	categories: number;
+	subscriptions: number;
+	firebaseEmail: boolean;
+	firebasePhone: boolean;
+}
+
+export async function adminDeleteUser(userId: string): Promise<DeleteUserResult> {
+	const result: DeleteUserResult = {
+		user: false,
+		preferences: false,
+		devices: 0,
+		categories: 0,
+		subscriptions: 0,
+		firebaseEmail: false,
+		firebasePhone: false,
+	};
+
+	if (!Types.ObjectId.isValid(userId)) {
+		throw new Error("Invalid userId");
+	}
+
+	const objectId = new Types.ObjectId(userId);
+
+	// 1. Get user document first to find auth links
+	const user = await User.findById(objectId);
+	if (!user) {
+		throw new Error("User not found");
+	}
+
+	// 2. Delete UserPreferences
+	const prefsResult = await UserPreferences.deleteMany({ userId: objectId });
+	result.preferences = prefsResult.deletedCount > 0;
+
+	// 3. Delete DeviceTokens
+	const deviceResult = await DeviceToken.deleteMany({ userId: objectId });
+	result.devices = deviceResult.deletedCount;
+
+	// 4. Delete user's custom categories (not default)
+	const categoryResult = await Category.deleteMany({
+		userId: objectId,
+		isDefault: false,
+	});
+	result.categories = categoryResult.deletedCount;
+
+	// 5. Delete subscriptions from user's array
+	const subscriptionIds = user.subscriptions || [];
+	if (subscriptionIds.length > 0) {
+		const subResult = await Subscription.deleteMany({
+			_id: { $in: subscriptionIds },
+		});
+		result.subscriptions = subResult.deletedCount;
+	}
+
+	// 6. Delete Firebase Auth entries (if exists)
+	try {
+		if (user.email) {
+			await firebaseAdmin.auth().getUserByEmail(user.email);
+			await firebaseAdmin.auth().deleteUser(user.email);
+			result.firebaseEmail = true;
+		}
+	} catch (e) {
+		// User not found in Firebase or other error - that's okay
+	}
+
+	try {
+		if (user.phone) {
+			await firebaseAdmin.auth().getUserByPhoneNumber(user.phone);
+			await firebaseAdmin.auth().deleteUser(user.phone);
+			result.firebasePhone = true;
+		}
+	} catch (e) {
+		// User not found in Firebase or other error - that's okay
+	}
+
+	// 7. Delete User document (last, after cleaning up references)
+	const userResult = await User.findByIdAndDelete(objectId);
+	result.user = userResult !== null;
+
+	return result;
 }
