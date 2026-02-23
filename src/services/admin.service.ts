@@ -162,19 +162,19 @@ export interface DeleteUserResult {
 	devices: number;
 	categories: number;
 	subscriptions: number;
-	firebaseEmail: boolean;
-	firebasePhone: boolean;
+	firebaseGoogle: boolean;
 }
 
-export async function adminDeleteUser(userId: string): Promise<DeleteUserResult> {
+export async function adminDeleteUser(
+	userId: string,
+): Promise<DeleteUserResult> {
 	const result: DeleteUserResult = {
 		user: false,
 		preferences: false,
 		devices: 0,
 		categories: 0,
 		subscriptions: 0,
-		firebaseEmail: false,
-		firebasePhone: false,
+		firebaseGoogle: false,
 	};
 
 	if (!Types.ObjectId.isValid(userId)) {
@@ -213,25 +213,16 @@ export async function adminDeleteUser(userId: string): Promise<DeleteUserResult>
 		result.subscriptions = subResult.deletedCount;
 	}
 
-	// 6. Delete Firebase Auth entries (if exists)
-	try {
-		if (user.email) {
-			await firebaseAdmin.auth().getUserByEmail(user.email);
-			await firebaseAdmin.auth().deleteUser(user.email);
-			result.firebaseEmail = true;
+	// 6. Delete Firebase Auth entry (Google users only - use googleId)
+	// Phone users use Twilio, not Firebase
+	if (user.googleId) {
+		try {
+			await firebaseAdmin.auth().getUser(user.googleId);
+			await firebaseAdmin.auth().deleteUser(user.googleId);
+			result.firebaseGoogle = true;
+		} catch (e) {
+			console.log(e);
 		}
-	} catch (e) {
-		// User not found in Firebase or other error - that's okay
-	}
-
-	try {
-		if (user.phone) {
-			await firebaseAdmin.auth().getUserByPhoneNumber(user.phone);
-			await firebaseAdmin.auth().deleteUser(user.phone);
-			result.firebasePhone = true;
-		}
-	} catch (e) {
-		// User not found in Firebase or other error - that's okay
 	}
 
 	// 7. Delete User document (last, after cleaning up references)
