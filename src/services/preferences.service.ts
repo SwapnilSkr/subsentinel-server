@@ -8,6 +8,10 @@ export interface UserPreferencesData {
 	painPoints?: string[];
 	goals?: string[];
 	alertTiming?: "24h" | "3d" | "1w";
+	integrations?: {
+		gmail?: boolean;
+		sms?: boolean;
+	};
 }
 
 export interface UserPreferencesResponse {
@@ -19,6 +23,10 @@ export interface UserPreferencesResponse {
 	painPoints: string[];
 	goals: string[];
 	alertTiming: "24h" | "3d" | "1w";
+	integrations: {
+		gmail: boolean;
+		sms: boolean;
+	};
 	onboardingComplete: boolean;
 	createdAt: Date;
 	updatedAt: Date;
@@ -54,6 +62,10 @@ export async function saveUserPreferences(
 		painPoints: data.painPoints || [],
 		goals: data.goals || [],
 		alertTiming: data.alertTiming || "24h",
+		integrations: {
+			gmail: data.integrations?.gmail ?? false,
+			sms: data.integrations?.sms ?? false,
+		},
 	};
 
 	if (data.categories) {

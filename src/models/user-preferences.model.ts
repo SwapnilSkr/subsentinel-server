@@ -8,6 +8,10 @@ export interface IUserPreferences extends Document {
 	painPoints: string[];
 	goals: string[];
 	alertTiming: "24h" | "3d" | "1w";
+	integrations: {
+		gmail: boolean;
+		sms: boolean;
+	};
 	onboardingComplete: boolean;
 	createdAt: Date;
 	updatedAt: Date;
@@ -29,6 +33,10 @@ const userPreferencesSchema = new Schema<IUserPreferences>(
 			type: String,
 			enum: ["24h", "3d", "1w"],
 			default: "24h",
+		},
+		integrations: {
+			gmail: { type: Boolean, default: false },
+			sms: { type: Boolean, default: false },
 		},
 		onboardingComplete: { type: Boolean, default: false },
 	},

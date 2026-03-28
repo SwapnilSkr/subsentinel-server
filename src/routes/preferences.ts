@@ -47,6 +47,12 @@ export const preferencesRoutes = (app: Elysia) =>
 							alertTiming: t.Optional(
 								t.Union([t.Literal("24h"), t.Literal("3d"), t.Literal("1w")]),
 							),
+							integrations: t.Optional(
+								t.Object({
+									gmail: t.Optional(t.Boolean()),
+									sms: t.Optional(t.Boolean()),
+								}),
+							),
 						}),
 					},
 				)
